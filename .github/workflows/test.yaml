@@ -1,0 +1,38 @@
+---
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+      - renovate/**
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  cancel-in-progress: true
+  group: >-
+    ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+
+jobs:
+  test:
+    name: ${{ matrix.os }} py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+          - windows-latest
+        python-version:
+          - "3.11"
+          - "3.12"
+          - "3.13"
+    steps:
+      # yamllint disable-line rule:line-length
+      - uses: paddyroddy/.github/actions/python/tox@7c376cafcf8e0ced0e2ac20e88102325d2a886d8 # v0
+        with:
+          cache-path: .tox
+          pyproject-toml: ./pyproject.toml
+          python-version: ${{ matrix.python-version }}

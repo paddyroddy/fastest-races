@@ -1,0 +1,24 @@
+---
+name: Documentation
+
+on:
+  push:
+    branches:
+      - main
+      - renovate/**
+  pull_request:
+
+jobs:
+  documentation:
+    runs-on: ubuntu-latest
+    steps:
+      # yamllint disable-line rule:line-length
+      - uses: paddyroddy/.github/actions/python/pdoc@7c376cafcf8e0ced0e2ac20e88102325d2a886d8 # v0
+        with:
+          docs-dependency-section: .[docs]
+          gh-pages-publish-directory: ./html/example
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          project-directory: ./src/example
+          pyproject-toml: ./pyproject.toml
+          python-version: "3.13"
+          template-directory: ./documentation

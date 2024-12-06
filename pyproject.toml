@@ -1,0 +1,163 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+    "setuptools",
+    "setuptools-scm",
+]
+
+[project]
+authors = [
+    {email = "patrickjamesroddy@gmail.com", name = "Patrick J. Roddy"},
+]
+classifiers = [
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
+dependencies = []
+description = ""
+dynamic = [
+    "version",
+]
+keywords = []
+name = "example"
+optional-dependencies = {dev = [
+    "build",
+    "mypy",
+    "pre-commit",
+    "pytest",
+    "ruff",
+    "tox",
+    "tuna",
+    "twine",
+], docs = [
+    "pdoc3",
+]}
+readme = "README.md"
+requires-python = ">=3.11"
+urls = {Code = """\
+    https://github.com/paddyroddy/python-template\
+    """, Documentation = """\
+    https://paddyroddy.github.io/python-template\
+    """, Homepage = """\
+    https://github.com/paddyroddy/python-template\
+    """, Issues = """\
+    https://github.com/paddyroddy/python-template/issues\
+    """}
+license.file = "LICENCE.txt"
+
+[tool.check-manifest]
+ignore = [
+    "*.md",
+    "src/example/_version.py",
+]
+
+[tool.coverage]
+report = {skip_covered = true, sort = "cover"}
+run = {branch = true, parallel = true, source = [
+    "example",
+]}
+paths.source = [
+    "src",
+    ".tox*/*/lib/python*/site-packages",
+]
+
+[tool.mypy]
+enable_error_code = [
+    "ignore-without-code",
+    "redundant-expr",
+    "truthy-bool",
+]
+strict = true
+warn_unreachable = true
+
+[tool.pytest.ini_options]
+addopts = [
+    "--color=yes",
+    "--import-mode=importlib",
+    "--strict-config",
+    "--strict-markers",
+    "--verbose",
+    "-ra",
+]
+filterwarnings = [
+    "error",
+]
+log_cli_level = "INFO"
+minversion = 6
+testpaths = [
+    "tests",
+]
+xfail_strict = true
+
+[tool.ruff]
+fix = true
+force-exclude = true
+src = [
+    "src",
+]
+lint.ignore = [
+    "COM812",
+    "D203",
+    "D212",
+    "D407",
+    "ISC001",
+]
+lint.isort = {known-first-party = [
+    "example",
+], section-order = [
+    "future",
+    "standard-library",
+    "third-party",
+    "first-party",
+    "local-folder",
+]}
+lint.per-file-ignores = {"tests*" = [
+    "INP001",
+    "S101",
+]}
+lint.select = [
+    "ALL",
+]
+lint.mccabe.max-complexity = 18
+lint.pep8-naming.classmethod-decorators = [
+    "classmethod",
+]
+
+[tool.setuptools_scm]
+local_scheme = "no-local-version"
+write_to = "src/example/_version.py"
+
+[tool.tomlsort]
+overrides."project.classifiers".inline_arrays = false
+overrides."tool.coverage.paths.source".inline_arrays = false
+overrides."tool.ruff.lint.isort.section-order".inline_arrays = false
+overrides."tool.tox.env_run_base.commands".inline_arrays = false
+
+[tool.tox]
+env_list = [
+    "py311",
+    "py312",
+    "py313",
+]
+env_run_base = {commands = [
+    [
+        "pytest",
+        "--cov",
+        "--cov-report=lcov",
+    ],
+], deps = [
+    "pytest-cov",
+]}
+gh.python = {"3.11" = [
+    "py311",
+], "3.12" = [
+    "py312",
+], "3.13" = [
+    "py313",
+]}

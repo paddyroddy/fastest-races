@@ -1,0 +1,23 @@
+---
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - renovate/**
+    tags:
+      - v*
+  pull_request:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      # yamllint disable-line rule:line-length
+      - uses: paddyroddy/.github/actions/python/deployment@7c376cafcf8e0ced0e2ac20e88102325d2a886d8 # v0
+        with:
+          pyproject-toml: ./pyproject.toml
+          python-version: "3.13"
