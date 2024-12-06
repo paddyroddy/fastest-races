@@ -25,7 +25,7 @@ dynamic = [
     "version",
 ]
 keywords = []
-name = "example"
+name = "fastest-races"
 optional-dependencies = {dev = [
     "build",
     "mypy",
@@ -41,26 +41,26 @@ optional-dependencies = {dev = [
 readme = "README.md"
 requires-python = ">=3.11"
 urls = {Code = """\
-    https://github.com/paddyroddy/python-template\
+    https://github.com/paddyroddy/fastest-races\
     """, Documentation = """\
-    https://paddyroddy.github.io/python-template\
+    https://paddyroddy.github.io/fastest-races\
     """, Homepage = """\
-    https://github.com/paddyroddy/python-template\
+    https://github.com/paddyroddy/fastest-races\
     """, Issues = """\
-    https://github.com/paddyroddy/python-template/issues\
+    https://github.com/paddyroddy/fastest-races/issues\
     """}
 license.file = "LICENCE.txt"
 
 [tool.check-manifest]
 ignore = [
     "*.md",
-    "src/example/_version.py",
+    "src/fastest_races/_version.py",
 ]
 
 [tool.coverage]
 report = {skip_covered = true, sort = "cover"}
 run = {branch = true, parallel = true, source = [
-    "example",
+    "fastest-races",
 ]}
 paths.source = [
     "src",
@@ -109,7 +109,7 @@ lint.ignore = [
     "ISC001",
 ]
 lint.isort = {known-first-party = [
-    "example",
+    "fastest_races",
 ], section-order = [
     "future",
     "standard-library",
@@ -131,7 +131,7 @@ lint.pep8-naming.classmethod-decorators = [
 
 [tool.setuptools_scm]
 local_scheme = "no-local-version"
-write_to = "src/example/_version.py"
+write_to = "src/fastest_races/_version.py"
 
 [tool.tomlsort]
 overrides."project.classifiers".inline_arrays = false
