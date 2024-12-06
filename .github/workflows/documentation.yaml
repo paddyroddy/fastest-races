@@ -16,9 +16,9 @@ jobs:
       - uses: paddyroddy/.github/actions/python/pdoc@7c376cafcf8e0ced0e2ac20e88102325d2a886d8 # v0
         with:
           docs-dependency-section: .[docs]
-          gh-pages-publish-directory: ./html/example
+          gh-pages-publish-directory: ./html/fastest_races
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          project-directory: ./src/example
+          project-directory: ./src/fastest_races
           pyproject-toml: ./pyproject.toml
           python-version: "3.13"
           template-directory: ./documentation
