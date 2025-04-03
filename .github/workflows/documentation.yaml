@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # yamllint disable-line rule:line-length
-      - uses: paddyroddy/.github/actions/python/pdoc@b9cde8bcbbce838802ecd0aba2c3a7f8b82f519c # v0
+      - uses: paddyroddy/.github/actions/python/pdoc@ef8e8c4b69c12a799c90f4400a49ad1e9d3ee345 # v0
         with:
           docs-dependency-section: .[docs]
           gh-pages-publish-directory: ./html/fastest_races
