@@ -19,7 +19,12 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Typing :: Typed",
 ]
-dependencies = []
+dependencies = [
+    "bs4",
+    "pandas",
+    "urllib3",
+    "lxml",
+]
 description = ""
 dynamic = [
     "version",
