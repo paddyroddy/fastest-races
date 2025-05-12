@@ -17,7 +17,7 @@ def main(url: str) -> None:
     soup = bs4.BeautifulSoup(html_content, "html.parser")
     table = soup.find("span", {"id": "cphBody_lblCachedRankingList"}).find("table")
     df = pd.read_html(str(table), header=1, index_col=0)[0]
-    df.drop(
+    df = df.drop(
         [
             "Unnamed: 2",
             "Unnamed: 3",
@@ -30,11 +30,10 @@ def main(url: str) -> None:
             "Unnamed: 13",
         ],
         axis=1,
-        inplace=True,
     )
     df["Date"] = pd.to_datetime(df["Date"])
-    df[["Venue", "County"]] = df["Venue"].str.split(",", expand=True)
-    df["County"] = df["County"].fillna("UK")
+    df[["Venue", "Country"]] = df["Venue"].str.split(",", expand=True)
+    df["County"] = df["Country"].fillna("UK")
     print()
 
 
