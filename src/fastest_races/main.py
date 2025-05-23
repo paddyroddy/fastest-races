@@ -1,32 +1,40 @@
 import argparse
 import io
+import logging
 import math
 import os
+import pathlib
 import webbrowser
 
 import bs4
 import pandas as pd
 import urllib3
 
-HOUR = 3_600
-MINUTE = 60
+_logger = logging.getLogger(__name__)
+
+_ERROR_CODES = 400
+_SECONDS_HOUR = 3_600
+_SECONDS_MINUTE = 60
+
 
 # --- Helper Functions ---
 
 
 def _format_seconds_to_display(total_seconds: int) -> str:
     """
-    Format total seconds into MM:SS if less than an hour, or H:MM:SS if an hour or more.
-    This is used for the 'Fastest' column.
+    Format total seconds.
+
+    Format total seconds into MM:SS if less than an hour, or H:MM:SS if an hour
+    or more. This is used for the 'Fastest' column.
     """
-    if total_seconds < HOUR:
-        minutes = int(total_seconds // MINUTE)
-        seconds = int(total_seconds % MINUTE)
+    if total_seconds < _SECONDS_HOUR:
+        minutes = int(total_seconds // _SECONDS_MINUTE)
+        seconds = int(total_seconds % _SECONDS_MINUTE)
         return f"{minutes:02d}:{seconds:02d}"
     # 1 hour or more
-    hours = int(total_seconds // HOUR)
-    minutes_after_hours = int((total_seconds % HOUR) // MINUTE)
-    seconds = int(total_seconds % MINUTE)
+    hours = int(total_seconds // _SECONDS_HOUR)
+    minutes_after_hours = int((total_seconds % _SECONDS_HOUR) // _SECONDS_MINUTE)
+    seconds = int(total_seconds % _SECONDS_MINUTE)
     # Using 'd' for hours allows single digit for 1-9 hours (e.g., 1:05:00)
     # Change to '{hours:02d}' if you always want two digits (e.g., 01:05:00)
     return f"{hours:d}:{minutes_after_hours:02d}:{seconds:02d}"
@@ -34,13 +42,17 @@ def _format_seconds_to_display(total_seconds: int) -> str:
 
 def _format_threshold_minutes_to_display(threshold_min: int) -> str:
     """
+    Format a minute threshold.
+
     Format a minute threshold into a readable string (e.g., '< 30', '< 1:00').
-    Displays as <H:MM if threshold is 60 minutes or more, else <M.
-    This is used for the column titles.
+    Displays as <H:MM if threshold is 60 minutes or more, else <M. This is used
+    for the column titles.
     """
-    if threshold_min >= MINUTE:  # If the threshold itself is 60 minutes or more
-        threshold_hours = threshold_min // MINUTE
-        threshold_remainder_minutes = threshold_min % MINUTE
+    if (
+        threshold_min >= _SECONDS_MINUTE
+    ):  # If the threshold itself is 60 minutes or more
+        threshold_hours = threshold_min // _SECONDS_MINUTE
+        threshold_remainder_minutes = threshold_min % _SECONDS_MINUTE
         return f"< {threshold_hours:d}:{threshold_remainder_minutes:02d}"
     # For thresholds less than 60 minutes (e.g., < 30, < 45)
     return f"< {threshold_min:d}"
@@ -55,16 +67,15 @@ def get_ranking_data(gender: str, year: str, distance: str) -> pd.DataFrame:
 
     Parameters
     ----------
-    gender : str
+    gender
         The gender to filter by ("M" or "F").
-    year : str
+    year
         The year for the rankings (e.g., "2024").
-    distance : str
+    distance
         The distance of the event ("10K", "Half Marathon", "Marathon", "5K").
 
     Returns
     -------
-    pd.DataFrame
         A DataFrame containing the cleaned performance data.
 
     Raises
@@ -72,7 +83,8 @@ def get_ranking_data(gender: str, year: str, distance: str) -> pd.DataFrame:
     ValueError
         If the table data cannot be found or parsed from the URL.
     ConnectionError
-        If there's an issue fetching data from the URL (e.g., network error, bad HTTP status).
+        If there's an issue fetching data from the URL (e.g., network error, bad
+        HTTP status).
 
     """
     url = f"https://www.thepowerof10.info/rankings/rankinglist.aspx?event={distance}&agegroup=ALL&sex={gender}&year={year}"
@@ -81,7 +93,7 @@ def get_ranking_data(gender: str, year: str, distance: str) -> pd.DataFrame:
     try:
         response = http.request("GET", url)
 
-        if response.status >= 400:
+        if response.status >= _ERROR_CODES:
             msg = f"HTTP Error {response.status}: Failed to fetch data from {url}"
             raise ConnectionError(msg)
 
@@ -97,25 +109,30 @@ def get_ranking_data(gender: str, year: str, distance: str) -> pd.DataFrame:
 
     table_span = soup.find("span", {"id": "cphBody_lblCachedRankingList"})
     if not table_span:
-        msg = f"Could not find the ranking list table container (span with ID 'cphBody_lblCachedRankingList') on {url}. The page structure might have changed or no data for this query."
+        msg = (
+            f"Could not find the ranking list table container (span with ID "
+            f"'cphBody_lblCachedRankingList') on {url}. The page structure "
+            "might have changed or no data for this query."
+        )
         raise ValueError(msg)
 
     table = table_span.find("table")
     if not table:
-        msg = f"Could not find a table within the ranking list span on {url}. This might mean no data is available for your query or the page structure has changed."  # noqa: E501
+        msg = (
+            f"Could not find a table within the ranking list span on {url}. "
+            "This might mean no data is available for your query or the page "
+            "structure has changed."
+        )
         raise ValueError(msg)
 
     try:
         df = pd.read_html(io.StringIO(str(table)), header=1)[0]
     except ValueError as e:
-        msg = f"Failed to parse table from HTML content. This might happen if the table is empty or malformed. Original error: {e}"
+        msg = (
+            "Failed to parse table from HTML content. This might happen if "
+            f"the table is empty or malformed. Original error: {e}"
+        )
         raise ValueError(msg) from e
-
-    if "Unnamed: 0" in df.columns and (
-        df["Unnamed: 0"].dtype == "int64"
-        or pd.api.types.is_numeric_dtype(df["Unnamed: 0"])
-    ):
-        df = df.rename(columns={"Unnamed: 0": "Rank"})
 
     df = df.loc[:, ~df.columns.str.startswith("Unnamed")]
 
@@ -136,38 +153,42 @@ def get_ranking_data(gender: str, year: str, distance: str) -> pd.DataFrame:
 
     df["Perf_seconds"] = df["Perf"].apply(
         lambda x: sum(
-            int(part) * (MINUTE**i) for i, part in enumerate(reversed(x.split(":")))
+            int(part) * (_SECONDS_MINUTE**i)
+            for i, part in enumerate(reversed(x.split(":")))
         )
     )
 
     if "Date" in df.columns:
         df["Date"] = pd.to_datetime(df["Date"], format="%d %b %y")
     else:
-        raise ValueError(
-            "The 'Date' column was not found after data processing. Cannot group results."
+        msg = (
+            "The 'Date' column was not found after data processing. Cannot "
+            "group results."
         )
+        raise ValueError(msg)
 
     return df
 
 
-def calculate_performance_metrics(df: pd.DataFrame, distance: str) -> pd.DataFrame:
+def calculate_performance_metrics(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Calculates dynamic minute thresholds and aggregates performance counts
+    Calculate performance metrics based on the provided DataFrame.
+
+    Calculate dynamic minute thresholds and aggregates performance counts
     based on those thresholds. Also flattens the multi-index for a single-row header
     and reorders columns to place 'Fastest' after 'Country'.
 
     Parameters
     ----------
-    df : pd.DataFrame
+    df
         The preprocessed DataFrame containing 'Perf_seconds' and grouping columns.
-    distance : str
+    distance
         The event distance. Although no longer used for formatting in helpers,
         it's kept here as a parameter for consistency in the calling signature
         or if future distance-specific logic is added (e.g. for scraping).
 
     Returns
     -------
-    pd.DataFrame
         An aggregated DataFrame with counts for each dynamic threshold,
         and a flattened single-row header with 'Fastest' in the desired position.
 
@@ -178,21 +199,21 @@ def calculate_performance_metrics(df: pd.DataFrame, distance: str) -> pd.DataFra
     global_min_seconds = df["Perf_seconds"].min()
     global_max_seconds = df["Perf_seconds"].max()
 
-    start_minute_threshold = math.floor(global_min_seconds / MINUTE) + 1
-    end_minute_threshold = math.ceil(global_max_seconds / MINUTE)
+    start_minute_threshold = math.floor(global_min_seconds / _SECONDS_MINUTE) + 1
+    end_minute_threshold = math.ceil(global_max_seconds / _SECONDS_MINUTE)
 
     end_minute_threshold = max(start_minute_threshold, end_minute_threshold)
 
     dynamic_threshold_minutes = list(
         range(start_minute_threshold, end_minute_threshold + 1)
-    ) or [math.ceil(global_min_seconds / MINUTE)]
+    ) or [math.ceil(global_min_seconds / _SECONDS_MINUTE)]
 
-    def _aggregate_dynamic_thresholds(group):
+    def _aggregate_dynamic_thresholds(group: pd.DataFrame) -> pd.Series:
         results = {}
         for threshold_min in dynamic_threshold_minutes:
             # Call _format_threshold_minutes_to_display WITHOUT distance parameter
             col_name = _format_threshold_minutes_to_display(threshold_min)
-            threshold_seconds_val = threshold_min * MINUTE
+            threshold_seconds_val = threshold_min * _SECONDS_MINUTE
             results[col_name] = (group["Perf_seconds"] < threshold_seconds_val).sum()
 
         min_perf_seconds = group["Perf_seconds"].min()
@@ -253,17 +274,17 @@ def generate_and_open_html_report(
     output_df: pd.DataFrame,
     css_file: str = "simple_table.css",
     html_file: str = "performance_analysis.html",
-):
+) -> None:
     """
     Generate an HTML report from the DataFrame and opens it in the default browser.
 
     Parameters
     ----------
-    output_df : pd.DataFrame
+    output_df
         The final DataFrame to be displayed.
-    css_file : str
+    css_file
         The name of the CSS stylesheet file.
-    html_file : str
+    html_file
         The name of the HTML file to be generated.
 
     """
@@ -290,24 +311,25 @@ def generate_and_open_html_report(
 </html>
 """
 
-    with open(html_file, "w", encoding="utf-8") as f:
+    with pathlib.Path.open(html_file, "w", encoding="utf-8") as f:
         f.write(html_content)
 
-    print(f"Opening '{html_file}' in your default browser...")
-    webbrowser.open(f"file://{os.path.realpath(html_file)}")
-    print(
-        f"\nMake sure you have a file named '{css_file}' in the same directory "
+    msg = f"Opening '{html_file}' in your default browser..."
+    _logger.info(msg)
+    msg = f"file://{os.path.realpath(html_file)}"
+    webbrowser.open(msg)
+    msg = (
+        f"Make sure you have a file named '{css_file}' in the same directory "
         "as your Python script with the CSS content provided previously."
     )
+    _logger.info(msg)
 
 
 # --- Main Execution Logic ---
 
 
 def main() -> None:
-    """
-    Main function to parse arguments, fetch, process, and display athlete performance data.
-    """
+    """Parse arguments, fetch, process, and display athlete performance data."""
     parser = argparse.ArgumentParser(
         description="Fetch and analyze athlete performance data from The Power of 10."
     )
@@ -339,32 +361,40 @@ def main() -> None:
 
     year_str = str(args.year)
 
-    print(f"Fetching data for {args.gender} {args.distance} in {year_str}...")
+    msg = f"Fetching data for {args.gender} {args.distance} in {year_str}..."
+    _logger.info(msg)
     try:
         df = get_ranking_data(args.gender, year_str, args.distance)
 
         if df.empty:
-            print(
-                f"No valid performance data found for {args.gender} {args.distance} in {year_str}. "
-                "This might be due to a mismatch in `Perf` format, no data available, or an issue with the website's structure for this query."
+            msg = (
+                f"No valid performance data found for {args.gender} "
+                f"{args.distance} in {year_str}. This might be due to a "
+                "mismatch in `Perf` format, no data available, or an issue "
+                "with the website's structure for this query."
             )
+            _logger.error(msg)
             return
 
-        # Distance is still passed here for get_ranking_data's URL, but no longer used in formatting.
-        output_df = calculate_performance_metrics(df, args.distance)
+        output_df = calculate_performance_metrics(df)
 
         if output_df.empty:
-            print(
-                f"No aggregated performance metrics could be calculated for {args.gender} {args.distance} in {year_str}. Output DataFrame is empty."
+            msg = (
+                "No aggregated performance metrics could be calculated for "
+                f"{args.gender} {args.distance} in {year_str}. Output "
+                "DataFrame is empty."
             )
+            _logger.error(msg)
             return
 
         generate_and_open_html_report(output_df)
 
     except (ConnectionError, ValueError) as e:
-        print(f"Error: {e}")
+        msg = f"Error: {e}"
+        _logger.exception(msg)
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        msg = f"An unexpected error occurred: {e}"
+        _logger.exception(msg)
 
 
 if __name__ == "__main__":
