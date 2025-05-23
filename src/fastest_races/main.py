@@ -1,10 +1,10 @@
-import argparse
 import io
 import logging
 import math
 
 import pandas as pd
 
+import fastest_races._cli
 import fastest_races._report
 import fastest_races._scraping
 import fastest_races._times
@@ -204,34 +204,7 @@ def calculate_performance_metrics(df: pd.DataFrame) -> pd.DataFrame:
 
 def main() -> None:
     """Parse arguments, fetch, process, and display athlete performance data."""
-    parser = argparse.ArgumentParser(
-        description="Fetch and analyze athlete performance data from The Power of 10."
-    )
-    parser.add_argument(
-        "-g",
-        "--gender",
-        type=str,
-        choices=["M", "F"],
-        required=True,
-        help="Gender for the rankings (M for male, F for female).",
-    )
-    parser.add_argument(
-        "-y",
-        "--year",
-        type=int,
-        required=True,
-        help="Year for the rankings (e.g., 2024).",
-    )
-    parser.add_argument(
-        "-d",
-        "--distance",
-        type=str,
-        choices=["10K", "HM", "Mar", "5K"],
-        required=True,
-        help="Distance of the event (10K, Half Marathon, Marathon, 5K).",
-    )
-
-    args = parser.parse_args()
+    args = fastest_races._cli.get_args()
 
     year_str = str(args.year)
 
