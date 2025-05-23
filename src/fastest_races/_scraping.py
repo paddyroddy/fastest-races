@@ -4,7 +4,7 @@ import urllib3
 from fastest_races._vars import ERROR_CODES
 
 
-def get_html_table(gender: str, year: str, distance: str) -> bs4.element.Tag:
+def get_html_table(gender: str, year: int, distance: str) -> bs4.element.Tag:
     """
     Fetch ranking data from The Power of 10 website and performs initial cleaning.
 
