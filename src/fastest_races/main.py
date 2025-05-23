@@ -10,55 +10,10 @@ import bs4
 import pandas as pd
 import urllib3
 
+from fastest_races._vars import ERROR_CODES, MINUTE_SECONDS
+import fastest_races._times
+
 _logger = logging.getLogger(__name__)
-
-_ERROR_CODES = 400
-_SECONDS_HOUR = 3_600
-_SECONDS_MINUTE = 60
-
-
-# --- Helper Functions ---
-
-
-def _format_seconds_to_display(total_seconds: int) -> str:
-    """
-    Format total seconds.
-
-    Format total seconds into MM:SS if less than an hour, or H:MM:SS if an hour
-    or more. This is used for the 'Fastest' column.
-    """
-    if total_seconds < _SECONDS_HOUR:
-        minutes = int(total_seconds // _SECONDS_MINUTE)
-        seconds = int(total_seconds % _SECONDS_MINUTE)
-        return f"{minutes:02d}:{seconds:02d}"
-    # 1 hour or more
-    hours = int(total_seconds // _SECONDS_HOUR)
-    minutes_after_hours = int((total_seconds % _SECONDS_HOUR) // _SECONDS_MINUTE)
-    seconds = int(total_seconds % _SECONDS_MINUTE)
-    # Using 'd' for hours allows single digit for 1-9 hours (e.g., 1:05:00)
-    # Change to '{hours:02d}' if you always want two digits (e.g., 01:05:00)
-    return f"{hours:d}:{minutes_after_hours:02d}:{seconds:02d}"
-
-
-def _format_threshold_minutes_to_display(threshold_min: int) -> str:
-    """
-    Format a minute threshold.
-
-    Format a minute threshold into a readable string (e.g., '< 30', '< 1:00').
-    Displays as <H:MM if threshold is 60 minutes or more, else <M. This is used
-    for the column titles.
-    """
-    if (
-        threshold_min >= _SECONDS_MINUTE
-    ):  # If the threshold itself is 60 minutes or more
-        threshold_hours = threshold_min // _SECONDS_MINUTE
-        threshold_remainder_minutes = threshold_min % _SECONDS_MINUTE
-        return f"< {threshold_hours:d}:{threshold_remainder_minutes:02d}"
-    # For thresholds less than 60 minutes (e.g., < 30, < 45)
-    return f"< {threshold_min:d}"
-
-
-# --- Main Data Processing Functions ---
 
 
 def get_ranking_data(gender: str, year: str, distance: str) -> pd.DataFrame:
@@ -87,13 +42,16 @@ def get_ranking_data(gender: str, year: str, distance: str) -> pd.DataFrame:
         HTTP status).
 
     """
-    url = f"https://www.thepowerof10.info/rankings/rankinglist.aspx?event={distance}&agegroup=ALL&sex={gender}&year={year}"
+    url = (
+        "https://www.thepowerof10.info/rankings/rankinglist.aspx?event="
+        f"{distance}&agegroup=ALL&sex={gender}&year={year}"
+    )
 
     http = urllib3.PoolManager()
     try:
         response = http.request("GET", url)
 
-        if response.status >= _ERROR_CODES:
+        if response.status >= ERROR_CODES:
             msg = f"HTTP Error {response.status}: Failed to fetch data from {url}"
             raise ConnectionError(msg)
 
@@ -126,7 +84,7 @@ def get_ranking_data(gender: str, year: str, distance: str) -> pd.DataFrame:
         raise ValueError(msg)
 
     try:
-        df = pd.read_html(io.StringIO(str(table)), header=1)[0]
+        rankings = pd.read_html(io.StringIO(str(table)), header=1)[0]
     except ValueError as e:
         msg = (
             "Failed to parse table from HTML content. This might happen if "
@@ -134,32 +92,36 @@ def get_ranking_data(gender: str, year: str, distance: str) -> pd.DataFrame:
         )
         raise ValueError(msg) from e
 
-    df = df.loc[:, ~df.columns.str.startswith("Unnamed")]
+    named_cols_only = rankings.loc[:, ~rankings.columns.str.startswith("Unnamed")]
 
-    df = df.loc[df["Perf"].str.match(r"^\d+:\d{2}(:\d{2})?$")].copy()
+    timed_rows_only = named_cols_only.loc[
+        named_cols_only["Perf"].str.match(r"^\d+:\d{2}(:\d{2})?$")
+    ].copy()
 
-    if df.empty:
+    if timed_rows_only.empty:
         return pd.DataFrame()
 
-    df = df.sort_values("Perf").reset_index(drop=True)
+    index_reset = timed_rows_only.sort_values("Perf").reset_index(drop=True)
 
     columns_to_drop_final = ["Gun", "PB", "Name", "Coach", "Club", "Rank"]
-    df = df.drop(columns=columns_to_drop_final, errors="ignore")
+    wanted_cols_only = index_reset.drop(columns=columns_to_drop_final, errors="ignore")
 
-    split_venue_country = df["Venue"].str.split(",", n=1, expand=True)
-    df["Venue"] = split_venue_country[0]
-    df["Country"] = split_venue_country.get(1, pd.Series(dtype=str))
-    df["Country"] = df["Country"].fillna("UK").str.strip()
+    split_venue_country = wanted_cols_only["Venue"].str.split(",", n=1, expand=True)
+    wanted_cols_only["Venue"] = split_venue_country[0]
+    wanted_cols_only["Country"] = split_venue_country.get(1, pd.Series(dtype=str))
+    wanted_cols_only["Country"] = wanted_cols_only["Country"].fillna("UK").str.strip()
 
-    df["Perf_seconds"] = df["Perf"].apply(
+    wanted_cols_only["Perf_seconds"] = wanted_cols_only["Perf"].apply(
         lambda x: sum(
-            int(part) * (_SECONDS_MINUTE**i)
+            int(part) * (MINUTE_SECONDS**i)
             for i, part in enumerate(reversed(x.split(":")))
         )
     )
 
-    if "Date" in df.columns:
-        df["Date"] = pd.to_datetime(df["Date"], format="%d %b %y")
+    if "Date" in wanted_cols_only.columns:
+        wanted_cols_only["Date"] = pd.to_datetime(
+            wanted_cols_only["Date"], format="%d %b %y"
+        )
     else:
         msg = (
             "The 'Date' column was not found after data processing. Cannot "
@@ -167,7 +129,7 @@ def get_ranking_data(gender: str, year: str, distance: str) -> pd.DataFrame:
         )
         raise ValueError(msg)
 
-    return df
+    return wanted_cols_only
 
 
 def calculate_performance_metrics(df: pd.DataFrame) -> pd.DataFrame:
@@ -175,8 +137,8 @@ def calculate_performance_metrics(df: pd.DataFrame) -> pd.DataFrame:
     Calculate performance metrics based on the provided DataFrame.
 
     Calculate dynamic minute thresholds and aggregates performance counts
-    based on those thresholds. Also flattens the multi-index for a single-row header
-    and reorders columns to place 'Fastest' after 'Country'.
+    based on those thresholds. Also flattens the multi-index for a single-row
+    header and reorders columns to place 'Fastest' after 'Country'.
 
     Parameters
     ----------
@@ -199,26 +161,26 @@ def calculate_performance_metrics(df: pd.DataFrame) -> pd.DataFrame:
     global_min_seconds = df["Perf_seconds"].min()
     global_max_seconds = df["Perf_seconds"].max()
 
-    start_minute_threshold = math.floor(global_min_seconds / _SECONDS_MINUTE) + 1
-    end_minute_threshold = math.ceil(global_max_seconds / _SECONDS_MINUTE)
+    start_minute_threshold = math.floor(global_min_seconds / MINUTE_SECONDS) + 1
+    end_minute_threshold = math.ceil(global_max_seconds / MINUTE_SECONDS)
 
     end_minute_threshold = max(start_minute_threshold, end_minute_threshold)
 
     dynamic_threshold_minutes = list(
         range(start_minute_threshold, end_minute_threshold + 1)
-    ) or [math.ceil(global_min_seconds / _SECONDS_MINUTE)]
+    ) or [math.ceil(global_min_seconds / MINUTE_SECONDS)]
 
     def _aggregate_dynamic_thresholds(group: pd.DataFrame) -> pd.Series:
         results = {}
         for threshold_min in dynamic_threshold_minutes:
             # Call _format_threshold_minutes_to_display WITHOUT distance parameter
-            col_name = _format_threshold_minutes_to_display(threshold_min)
-            threshold_seconds_val = threshold_min * _SECONDS_MINUTE
+            col_name = fastest_races._times.format_threshold_minutes_to_display(threshold_min)
+            threshold_seconds_val = threshold_min * MINUTE_SECONDS
             results[col_name] = (group["Perf_seconds"] < threshold_seconds_val).sum()
 
         min_perf_seconds = group["Perf_seconds"].min()
         # Call _format_seconds_to_display WITHOUT distance parameter
-        results["Fastest"] = _format_seconds_to_display(min_perf_seconds)
+        results["Fastest"] = fastest_races._times.format_seconds_to_display(min_perf_seconds)
 
         return pd.Series(results)
 
@@ -227,7 +189,7 @@ def calculate_performance_metrics(df: pd.DataFrame) -> pd.DataFrame:
 
     # Use the general formatting for sort_columns_for_display
     sort_columns_for_display = [
-        _format_threshold_minutes_to_display(m) for m in dynamic_threshold_minutes
+        fastest_races._times.format_threshold_minutes_to_display(m) for m in dynamic_threshold_minutes
     ]
     sort_columns_for_display.append("Fastest")
 
@@ -253,7 +215,7 @@ def calculate_performance_metrics(df: pd.DataFrame) -> pd.DataFrame:
 
     # Use the general formatting for dynamic_threshold_cols_for_order
     dynamic_threshold_cols_for_order = [
-        _format_threshold_minutes_to_display(m) for m in dynamic_threshold_minutes
+        fastest_races._times.format_threshold_minutes_to_display(m) for m in dynamic_threshold_minutes
     ]
 
     final_column_order = (
@@ -364,9 +326,9 @@ def main() -> None:
     msg = f"Fetching data for {args.gender} {args.distance} in {year_str}..."
     _logger.info(msg)
     try:
-        df = get_ranking_data(args.gender, year_str, args.distance)
+        rankings = get_ranking_data(args.gender, year_str, args.distance)
 
-        if df.empty:
+        if rankings.empty:
             msg = (
                 f"No valid performance data found for {args.gender} "
                 f"{args.distance} in {year_str}. This might be due to a "
@@ -376,7 +338,7 @@ def main() -> None:
             _logger.error(msg)
             return
 
-        output_df = calculate_performance_metrics(df)
+        output_df = calculate_performance_metrics(rankings)
 
         if output_df.empty:
             msg = (
