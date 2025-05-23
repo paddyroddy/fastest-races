@@ -6,12 +6,11 @@ import os
 import pathlib
 import webbrowser
 
-import bs4
 import pandas as pd
-import urllib3
 
-from fastest_races._vars import ERROR_CODES, MINUTE_SECONDS
+import fastest_races._scraping
 import fastest_races._times
+from fastest_races._vars import MINUTE_SECONDS
 
 _logger = logging.getLogger(__name__)
 
@@ -42,49 +41,13 @@ def get_ranking_data(gender: str, year: str, distance: str) -> pd.DataFrame:
         HTTP status).
 
     """
-    url = (
-        "https://www.thepowerof10.info/rankings/rankinglist.aspx?event="
-        f"{distance}&agegroup=ALL&sex={gender}&year={year}"
-    )
-
-    http = urllib3.PoolManager()
     try:
-        response = http.request("GET", url)
-
-        if response.status >= ERROR_CODES:
-            msg = f"HTTP Error {response.status}: Failed to fetch data from {url}"
-            raise ConnectionError(msg)
-
-    except urllib3.exceptions.MaxRetryError as e:
-        msg = f"Could not connect to {url}: {e}"
-        raise ConnectionError(msg) from e
-    except Exception as e:
-        msg = f"An unexpected error occurred during data fetch: {e}"
-        raise ConnectionError(msg) from e
-
-    html_content = response.data.decode("utf-8")
-    soup = bs4.BeautifulSoup(html_content, "html.parser")
-
-    table_span = soup.find("span", {"id": "cphBody_lblCachedRankingList"})
-    if not table_span:
-        msg = (
-            f"Could not find the ranking list table container (span with ID "
-            f"'cphBody_lblCachedRankingList') on {url}. The page structure "
-            "might have changed or no data for this query."
-        )
-        raise ValueError(msg)
-
-    table = table_span.find("table")
-    if not table:
-        msg = (
-            f"Could not find a table within the ranking list span on {url}. "
-            "This might mean no data is available for your query or the page "
-            "structure has changed."
-        )
-        raise ValueError(msg)
-
-    try:
-        rankings = pd.read_html(io.StringIO(str(table)), header=1)[0]
+        rankings = pd.read_html(
+            io.StringIO(
+                str(fastest_races._scraping.get_html_table(gender, year, distance))
+            ),
+            header=1,
+        )[0]
     except ValueError as e:
         msg = (
             "Failed to parse table from HTML content. This might happen if "
@@ -174,13 +137,17 @@ def calculate_performance_metrics(df: pd.DataFrame) -> pd.DataFrame:
         results = {}
         for threshold_min in dynamic_threshold_minutes:
             # Call _format_threshold_minutes_to_display WITHOUT distance parameter
-            col_name = fastest_races._times.format_threshold_minutes_to_display(threshold_min)
+            col_name = fastest_races._times.format_threshold_minutes_to_display(
+                threshold_min
+            )
             threshold_seconds_val = threshold_min * MINUTE_SECONDS
             results[col_name] = (group["Perf_seconds"] < threshold_seconds_val).sum()
 
         min_perf_seconds = group["Perf_seconds"].min()
         # Call _format_seconds_to_display WITHOUT distance parameter
-        results["Fastest"] = fastest_races._times.format_seconds_to_display(min_perf_seconds)
+        results["Fastest"] = fastest_races._times.format_seconds_to_display(
+            min_perf_seconds
+        )
 
         return pd.Series(results)
 
@@ -189,7 +156,8 @@ def calculate_performance_metrics(df: pd.DataFrame) -> pd.DataFrame:
 
     # Use the general formatting for sort_columns_for_display
     sort_columns_for_display = [
-        fastest_races._times.format_threshold_minutes_to_display(m) for m in dynamic_threshold_minutes
+        fastest_races._times.format_threshold_minutes_to_display(m)
+        for m in dynamic_threshold_minutes
     ]
     sort_columns_for_display.append("Fastest")
 
@@ -215,7 +183,8 @@ def calculate_performance_metrics(df: pd.DataFrame) -> pd.DataFrame:
 
     # Use the general formatting for dynamic_threshold_cols_for_order
     dynamic_threshold_cols_for_order = [
-        fastest_races._times.format_threshold_minutes_to_display(m) for m in dynamic_threshold_minutes
+        fastest_races._times.format_threshold_minutes_to_display(m)
+        for m in dynamic_threshold_minutes
     ]
 
     final_column_order = (
