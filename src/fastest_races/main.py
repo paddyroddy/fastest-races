@@ -61,74 +61,27 @@ def get_ranking_data(gender: str, year: str, distance: str) -> pd.DataFrame:
         raise ValueError(f"Could not find a table within the ranking list span on {url}.")
 
     # Use Pandas to read the HTML table into a DataFrame
-    df = pd.read_html(io.StringIO(str(table)), header=1, index_col=0)[0]
+    df = pd.read_html(io.StringIO(str(table)), header=1)[0]
 
-    # --- DEBUGGING STEP (You can uncomment this temporarily) ---
-    # print("Columns after initial read_html:", df.columns)
-    # -----------------------------------------------------------
-
-    # Clean and preprocess the DataFrame
-    df = df.loc[:, ~df.columns.str.startswith("Unnamed")]
-
-    # Define columns to drop. Use errors='ignore' to prevent crashing if a column is already gone
-    # or never existed (though it's better to ensure they exist if expected).
-    columns_to_drop = ["Gun", "PB", "Name", "Coach", "Club", "Rank"]
-    
-    # Check if 'Rank' or other problematic columns are in the DataFrame's index.
-    # If header=1 and index_col=0, 'Rank' is often moved to the index.
-    if 'Rank' in df.index.names:
-        # If 'Rank' is an index, we don't need to drop it as a column.
-        # We can also choose to reset it if it was intended to be a column.
-        # For this scenario, let's just make sure it's not in columns_to_drop if it's an index.
-        columns_to_drop = [col for col in columns_to_drop if col != 'Rank']
-
-
-    df = df.drop(columns=columns_to_drop, errors='ignore') # Use columns= for clarity, errors='ignore' for robustness
-
-    # It's highly likely that 'Rank' becomes the index due to `index_col=0` and `header=1`.
-    # If you want to keep 'Rank' as a column and not part of the index, you'd adjust `pd.read_html`.
-    # Given the previous example, it seems 'Rank' was implicitly handled by `index_col=0`.
-    # The error suggests it's now being *looked for* in columns after already being set as index.
-
-    # Ensure 'Date' column is converted to datetime objects
-    # It seems 'Date' is *not* consistently column 0, so let's adjust how the index is handled.
-    # The original table structure suggests 'Rank' is the first column, which `index_col=0` would use.
-    # If 'Date' is actually needed as a *column* for subsequent operations and isn't the index,
-    # then `index_col=0` might be stripping it or making 'Rank' the index.
-
-    # Let's re-evaluate the read_html based on the typical Power of 10 table structure:
-    # Rank Name Perf   Gun   PB Coach   Club Date       Venue       Country
-    # 0   1   A  28:01  28:01  28:01 John  ClubA 15 Dec 24 Telford, UK
-
-    # If Rank is intended to be processed and dropped, it *should* be a column.
-    # Let's try not setting `index_col` initially and then handle the Rank column explicitly.
-    df = pd.read_html(io.StringIO(str(table)), header=1)[0] # Removed index_col=0
-
-    # Now, explicitly check and drop 'Rank' or similar.
-    # After `pd.read_html(..., header=1)[0]`, the columns are likely:
-    # 'Unnamed: 0' (which is 'Rank'), 'Name', 'Perf', 'Gun', 'PB', 'Coach', 'Club', 'Date', 'Venue', 'Country'
-    
     # Rename 'Unnamed: 0' to 'Rank' if it exists and is indeed the Rank column
     if 'Unnamed: 0' in df.columns and (df['Unnamed: 0'].dtype == 'int64' or pd.api.types.is_numeric_dtype(df['Unnamed: 0'])):
         df = df.rename(columns={'Unnamed: 0': 'Rank'})
     else:
         # Fallback for pages that might not have an unnamed column 0, or it's not Rank
-        # If 'Rank' is missing and expected, this indicates a major parse issue.
-        pass # Or raise a warning/error if 'Rank' is truly critical and not found under any name.
+        pass 
 
     df = df.loc[:, ~df.columns.str.startswith("Unnamed")] # Re-apply after potential rename
 
 
     # Filter for valid time formats - crucial to do before performance calculations
-    df = df.loc[df["Perf"].str.match(r"^\d+:\d{2}$")].copy() # Add .copy() to avoid SettingWithCopyWarning
+    df = df.loc[df["Perf"].str.match(r"^\d+:\d{2}$")].copy()
 
     # Sort by performance and reset index
     df = df.sort_values("Perf").reset_index(drop=True)
 
     # Columns to drop after renaming Unnamed:0 (if it was Rank)
-    # Now that Rank should be a proper column, we can drop it.
     columns_to_drop_final = ["Gun", "PB", "Name", "Coach", "Club", "Rank"]
-    df = df.drop(columns=columns_to_drop_final, errors='ignore') # Use errors='ignore' here too
+    df = df.drop(columns=columns_to_drop_final, errors='ignore')
 
     df[["Venue", "Country"]] = df["Venue"].str.split(",", n=1, expand=True)
     df["Country"] = df["Country"].fillna("UK").str.strip()
@@ -137,12 +90,9 @@ def get_ranking_data(gender: str, year: str, distance: str) -> pd.DataFrame:
         lambda x: int(x.split(":")[0]) * 60 + int(x.split(":")[1])
     )
     
-    # Ensure 'Date' column is converted to datetime objects
-    # It's assumed 'Date' column is now correctly loaded and not dropped.
     if 'Date' in df.columns:
         df["Date"] = pd.to_datetime(df["Date"], format="%d %b %y")
     else:
-        # If 'Date' is not found, this is a critical error for grouping.
         raise ValueError("The 'Date' column was not found after data processing. Cannot group results.")
     
     return df
@@ -186,7 +136,8 @@ def calculate_performance_metrics(df: pd.DataFrame) -> pd.DataFrame:
         return pd.Series(results)
 
     grouped = df.groupby(["Date", "Venue", "Country"], dropna=False)
-    output = grouped.apply(_aggregate_dynamic_thresholds)
+    # FIX: Add include_groups=False to silence the DeprecationWarning
+    output = grouped.apply(_aggregate_dynamic_thresholds, include_groups=False)
 
     sort_columns = [f"< {m}" for m in dynamic_threshold_minutes]
     sort_columns.append("min")
@@ -275,8 +226,4 @@ def main(gender: str, year: str, distance: str) -> None:
 
 
 if __name__ == "__main__":
-    # Example usage:
     main("M", "2024", "10K")
-    # Uncomment these for additional tests:
-    # main("F", "2023", "Marathon")
-    # main("M", "2025", "10K") # Example for a future year with no data yet
