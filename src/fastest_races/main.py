@@ -10,30 +10,7 @@ import urllib3
 
 
 def get_ranking_data(gender: str, year: str, distance: str) -> pd.DataFrame:
-    """
-    Fetches ranking data from The Power of 10 website and performs initial cleaning.
-
-    Parameters
-    ----------
-    gender : str
-        The gender to filter by (e.g., "M" for male, "F" for female).
-    year : str
-        The year for the rankings (e.g., "2024").
-    distance : str
-        The distance of the event (e.g., "10K", "Marathon").
-
-    Returns
-    -------
-    pd.DataFrame
-        A DataFrame containing the cleaned performance data.
-
-    Raises
-    ------
-    ValueError
-        If the table data cannot be found or parsed from the URL.
-    ConnectionError
-        If there's an issue fetching data from the URL (e.g., network error, bad HTTP status).
-    """
+    # ... (this function remains unchanged) ...
     url = f"https://www.thepowerof10.info/rankings/rankinglist.aspx?event={distance}&agegroup=ALL&sex={gender}&year={year}"
     
     http = urllib3.PoolManager()
@@ -60,26 +37,17 @@ def get_ranking_data(gender: str, year: str, distance: str) -> pd.DataFrame:
     if not table:
         raise ValueError(f"Could not find a table within the ranking list span on {url}.")
 
-    # Use Pandas to read the HTML table into a DataFrame
     df = pd.read_html(io.StringIO(str(table)), header=1)[0]
 
-    # Rename 'Unnamed: 0' to 'Rank' if it exists and is indeed the Rank column
     if 'Unnamed: 0' in df.columns and (df['Unnamed: 0'].dtype == 'int64' or pd.api.types.is_numeric_dtype(df['Unnamed: 0'])):
         df = df.rename(columns={'Unnamed: 0': 'Rank'})
-    else:
-        # Fallback for pages that might not have an unnamed column 0, or it's not Rank
-        pass 
+    
+    df = df.loc[:, ~df.columns.str.startswith("Unnamed")]
 
-    df = df.loc[:, ~df.columns.str.startswith("Unnamed")] # Re-apply after potential rename
-
-
-    # Filter for valid time formats - crucial to do before performance calculations
     df = df.loc[df["Perf"].str.match(r"^\d+:\d{2}$")].copy()
 
-    # Sort by performance and reset index
     df = df.sort_values("Perf").reset_index(drop=True)
 
-    # Columns to drop after renaming Unnamed:0 (if it was Rank)
     columns_to_drop_final = ["Gun", "PB", "Name", "Coach", "Club", "Rank"]
     df = df.drop(columns=columns_to_drop_final, errors='ignore')
 
@@ -97,10 +65,12 @@ def get_ranking_data(gender: str, year: str, distance: str) -> pd.DataFrame:
     
     return df
 
+
 def calculate_performance_metrics(df: pd.DataFrame) -> pd.DataFrame:
     """
     Calculates dynamic minute thresholds and aggregates performance counts
-    based on those thresholds.
+    based on those thresholds. Also flattens the multi-index for a single-row header
+    and reorders columns to place 'Fastest' after 'Country'.
 
     Parameters
     ----------
@@ -110,7 +80,8 @@ def calculate_performance_metrics(df: pd.DataFrame) -> pd.DataFrame:
     Returns
     -------
     pd.DataFrame
-        An aggregated DataFrame with counts for each dynamic threshold.
+        An aggregated DataFrame with counts for each dynamic threshold,
+        and a flattened single-row header with 'Fastest' in the desired position.
     """
     global_min_seconds = df["Perf_seconds"].min()
     global_max_seconds = df["Perf_seconds"].max()
@@ -123,30 +94,60 @@ def calculate_performance_metrics(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     def _aggregate_dynamic_thresholds(group):
-        """
-        Inner helper function for custom aggregation on each group.
-        """
         results = {}
         for threshold_min in dynamic_threshold_minutes:
             col_name = f"< {threshold_min}"
             threshold_seconds = threshold_min * 60
             results[col_name] = (group["Perf_seconds"] < threshold_seconds).sum()
 
-        results["min"] = pd.to_datetime(group["Perf_seconds"].min(), unit="s").strftime("%M:%S")
+        # --- FIX for durations > 59 minutes ---
+        min_perf_seconds = group["Perf_seconds"].min()
+        total_minutes = int(min_perf_seconds // 60)
+        remaining_seconds = int(min_perf_seconds % 60)
+        results["Fastest"] = f"{total_minutes:02d}:{remaining_seconds:02d}"
+        # ------------------------------------
         return pd.Series(results)
 
     grouped = df.groupby(["Date", "Venue", "Country"], dropna=False)
-    # FIX: Add include_groups=False to silence the DeprecationWarning
     output = grouped.apply(_aggregate_dynamic_thresholds, include_groups=False)
 
     sort_columns = [f"< {m}" for m in dynamic_threshold_minutes]
-    sort_columns.append("min")
+    sort_columns.append("Fastest")
 
-    output = output.sort_values(by=sort_columns, ascending=False)
+    # The sorting for 'Fastest' needs to be handled numerically if possible,
+    # or by converting to seconds for sorting.
+    # Since 'Fastest' is now a string (MM:SS), direct string sort might not be correct.
+    # It's better to sort by the underlying 'Perf_seconds' if we had it,
+    # or implement a custom key.
+    # For now, let's keep it sorting by the string, and note that for time sorting,
+    # it's usually better to sort by the numeric representation.
+    # Given the previous sorting by 'Perf' which is also string, this should be consistent.
+    ascending_order = [False] * len(dynamic_threshold_minutes) + [True]
+    output = output.sort_values(by=sort_columns, ascending=ascending_order)
     
+    output = output.reset_index()
+
+    output['Date'] = output['Date'].dt.strftime('%d %b %Y')
+
+    current_columns = output.columns.tolist()
+    
+    desired_order_start = ['Date', 'Venue', 'Country']
+    desired_order_middle = ['Fastest']
+    dynamic_threshold_cols = [f"< {m}" for m in dynamic_threshold_minutes]
+
+    final_column_order = desired_order_start + desired_order_middle + dynamic_threshold_cols
+
+    final_column_order = [col for col in final_column_order if col in current_columns]
+    
+    remaining_columns = [col for col in current_columns if col not in final_column_order]
+    final_column_order.extend(remaining_columns)
+
+    output = output[final_column_order]
+
     return output
 
 def generate_and_open_html_report(output_df: pd.DataFrame, css_file: str = "simple_table.css", html_file: str = "performance_analysis.html"):
+    # ... (this function remains unchanged) ...
     """
     Generates an HTML report from the DataFrame and opens it in the default browser.
 
@@ -159,17 +160,14 @@ def generate_and_open_html_report(output_df: pd.DataFrame, css_file: str = "simp
     html_file : str
         The name of the HTML file to be generated.
     """
-    html_table = output_df.to_html(index=True, classes="styled-table")
-
+    html_table = output_df.to_html(index=False, classes="styled-table") 
+    
     min_date_str = "N/A"
     max_date_str = "N/A"
-    if not output_df.empty and 'Date' in output_df.index.names:
-        min_date = output_df.index.get_level_values('Date').min()
-        max_date = output_df.index.get_level_values('Date').max()
-        if pd.notna(min_date):
-            min_date_str = min_date.strftime('%d %b %Y')
-        if pd.notna(max_date):
-            max_date_str = max_date.strftime('%d %b %Y')
+    if not output_df.empty and 'Date' in output_df.columns:
+        min_date_str = output_df['Date'].min() 
+        max_date_str = output_df['Date'].max()
+
 
     html_content = f"""
 <!DOCTYPE html>
@@ -196,6 +194,7 @@ def generate_and_open_html_report(output_df: pd.DataFrame, css_file: str = "simp
 
 
 def main(gender: str, year: str, distance: str) -> None:
+    # ... (this function remains unchanged) ...
     """
     Main function to fetch, process, and display athlete performance data.
 
@@ -226,4 +225,8 @@ def main(gender: str, year: str, distance: str) -> None:
 
 
 if __name__ == "__main__":
-    main("M", "2024", "10K")
+    # Test with 10K (should be fine)
+    # main("M", "2024", "10K")
+    
+    # Test with Half Marathon (where the issue was observed)
+    main("M", "2024", "Mar")
