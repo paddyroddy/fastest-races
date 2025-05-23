@@ -21,9 +21,9 @@ classifiers = [
 ]
 dependencies = [
     "bs4",
+    "lxml",
     "pandas",
     "urllib3",
-    "lxml",
 ]
 description = ""
 dynamic = [
