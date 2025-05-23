@@ -3,6 +3,7 @@ import math
 
 import pandas as pd
 
+import fastest_races._scraping
 import fastest_races._times
 from fastest_races._vars import MINUTE_SECONDS
 
