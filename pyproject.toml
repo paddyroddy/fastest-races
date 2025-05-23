@@ -122,7 +122,9 @@ lint.isort = {known-first-party = [
     "first-party",
     "local-folder",
 ]}
-lint.per-file-ignores = {"tests*" = [
+lint.per-file-ignores = {"src*" = [
+    "SLF001",
+], "tests*" = [
     "INP001",
     "S101",
 ]}
