@@ -5,6 +5,21 @@ requires = [
     "setuptools-scm",
 ]
 
+[dependency-groups]
+dev = [
+    "build",
+    "mypy",
+    "pre-commit",
+    "pytest",
+    "ruff",
+    "tox",
+    "tuna",
+    "twine",
+]
+docs = [
+    "pdoc3",
+]
+
 [project]
 authors = [
     {email = "patrickjamesroddy@gmail.com", name = "Patrick J. Roddy"},
@@ -26,18 +41,6 @@ dynamic = [
 ]
 keywords = []
 name = "fastest-races"
-optional-dependencies = {dev = [
-    "build",
-    "mypy",
-    "pre-commit",
-    "pytest",
-    "ruff",
-    "tox",
-    "tuna",
-    "twine",
-], docs = [
-    "pdoc3",
-]}
 readme = "README.md"
 requires-python = ">=3.11"
 urls = {Code = """\
