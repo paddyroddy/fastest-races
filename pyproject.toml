@@ -5,6 +5,21 @@ requires = [
     "setuptools-scm",
 ]
 
+[dependency-groups]
+dev = [
+    "build",
+    "mypy",
+    "pre-commit",
+    "pytest",
+    "ruff",
+    "tox",
+    "tuna",
+    "twine",
+]
+docs = [
+    "pdoc3",
+]
+
 [project]
 authors = [
     {email = "patrickjamesroddy@gmail.com", name = "Patrick J. Roddy"},
@@ -149,18 +164,3 @@ gh.python = {"3.11" = [
 ], "3.13" = [
     "py313",
 ]}
-
-[dependency-groups]
-dev = [
-    "build",
-    "mypy",
-    "pre-commit",
-    "pytest",
-    "ruff",
-    "tox",
-    "tuna",
-    "twine",
-]
-docs = [
-    "pdoc3",
-]
