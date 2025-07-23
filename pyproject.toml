@@ -26,18 +26,6 @@ dynamic = [
 ]
 keywords = []
 name = "fastest-races"
-optional-dependencies = {dev = [
-    "build",
-    "mypy",
-    "pre-commit",
-    "pytest",
-    "ruff",
-    "tox",
-    "tuna",
-    "twine",
-], docs = [
-    "pdoc3",
-]}
 readme = "README.md"
 requires-python = ">=3.11"
 urls = {Code = """\
@@ -161,3 +149,18 @@ gh.python = {"3.11" = [
 ], "3.13" = [
     "py313",
 ]}
+
+[dependency-groups]
+dev = [
+    "build",
+    "mypy",
+    "pre-commit",
+    "pytest",
+    "ruff",
+    "tox",
+    "tuna",
+    "twine",
+]
+docs = [
+    "pdoc3",
+]
