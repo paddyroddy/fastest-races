@@ -25,7 +25,6 @@ authors = [
     {email = "patrickjamesroddy@gmail.com", name = "Patrick J. Roddy"},
 ]
 classifiers = [
-    "License :: OSI Approved :: BSD License",
     "Operating System :: POSIX",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
@@ -40,10 +39,13 @@ dynamic = [
     "version",
 ]
 keywords = []
+license = "BSD-3-Clause"
+license-files = [
+    "LICENCE.txt",
+]
 name = "fastest-races"
 readme = "README.md"
 requires-python = ">=3.11"
-license.file = "LICENCE.txt"
 urls.Code = "https://github.com/paddyroddy/fastest-races"
 urls.Documentation = "https://paddyroddy.github.io/fastest-races"
 urls.Homepage = "https://github.com/paddyroddy/fastest-races"
