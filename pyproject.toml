@@ -43,16 +43,11 @@ keywords = []
 name = "fastest-races"
 readme = "README.md"
 requires-python = ">=3.11"
-urls = {Code = """\
-    https://github.com/paddyroddy/fastest-races\
-    """, Documentation = """\
-    https://paddyroddy.github.io/fastest-races\
-    """, Homepage = """\
-    https://github.com/paddyroddy/fastest-races\
-    """, Issues = """\
-    https://github.com/paddyroddy/fastest-races/issues\
-    """}
 license.file = "LICENCE.txt"
+urls.Code = "https://github.com/paddyroddy/fastest-races"
+urls.Documentation = "https://paddyroddy.github.io/fastest-races"
+urls.Homepage = "https://github.com/paddyroddy/fastest-races"
+urls.Issues = "https://github.com/paddyroddy/fastest-races/issues"
 
 [tool.check-manifest]
 ignore = [
