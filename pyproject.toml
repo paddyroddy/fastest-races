@@ -33,7 +33,12 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Typing :: Typed",
 ]
-dependencies = []
+dependencies = [
+    "bs4",
+    "lxml",
+    "pandas",
+    "urllib3",
+]
 description = ""
 dynamic = [
     "version",
@@ -117,7 +122,9 @@ lint.isort = {known-first-party = [
     "first-party",
     "local-folder",
 ]}
-lint.per-file-ignores = {"tests*" = [
+lint.per-file-ignores = {"src*" = [
+    "SLF001",
+], "tests*" = [
     "INP001",
     "S101",
 ]}
