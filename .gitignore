@@ -1,6 +1,6 @@
+*.egg-info
+*.html
+.coverage
 __pycache__
 _version.py
-.coverage
-*.egg-info
 dist
-html
