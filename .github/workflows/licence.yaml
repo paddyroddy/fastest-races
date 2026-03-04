@@ -7,10 +7,10 @@ on:
 
 jobs:
   update-licence-year:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     steps:
       # yamllint disable-line rule:line-length
-      - uses: paddyroddy/.github/actions/licence@7c376cafcf8e0ced0e2ac20e88102325d2a886d8 # v0
+      - uses: paddyroddy/.github/actions/licence@d8081a80ce0003b82fc662944c69bb61db85e518 # v0
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           licence-file: ./LICENCE.txt
+          licence-token: ${{ secrets.LICENCE_PAT }}

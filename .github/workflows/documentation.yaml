@@ -10,12 +10,12 @@ on:
 
 jobs:
   documentation:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     steps:
       # yamllint disable-line rule:line-length
-      - uses: paddyroddy/.github/actions/python/pdoc@7c376cafcf8e0ced0e2ac20e88102325d2a886d8 # v0
+      - uses: paddyroddy/.github/actions/python/pdoc@d8081a80ce0003b82fc662944c69bb61db85e518 # v0
         with:
-          docs-dependency-section: .[docs]
+          docs-dependency-section: docs
           gh-pages-publish-directory: ./html/fastest_races
           github-token: ${{ secrets.GITHUB_TOKEN }}
           project-directory: ./src/fastest_races
