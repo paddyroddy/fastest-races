@@ -41,7 +41,7 @@ def get_html_table(gender: str, year: int, distance: str) -> bs4.element.Tag:
 
         if response.status >= ERROR_CODES:
             msg = f"HTTP Error {response.status}: Failed to fetch data from {url}"
-            raise ConnectionError(msg)
+            raise ConnectionError(msg)  # noqa: TRY301
 
     except urllib3.exceptions.MaxRetryError as e:
         msg = f"Could not connect to {url}: {e}"

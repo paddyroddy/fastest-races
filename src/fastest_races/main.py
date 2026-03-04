@@ -1,3 +1,5 @@
+"""Script entry point to find the fastest races."""
+
 import fastest_races._cli
 
 

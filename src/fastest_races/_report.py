@@ -49,7 +49,7 @@ def generate_and_open_html_report(
 </html>
 """
 
-    with pathlib.Path.open(html_file, "w", encoding="utf-8") as f:
+    with pathlib.Path(html_file).open("w", encoding="utf-8") as f:
         f.write(html_content)
 
     msg = f"Opening '{html_file}' in your default browser..."
