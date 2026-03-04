@@ -1,6 +1,6 @@
 # FastestRaces
 
-> [!NOTE]  
+> [!NOTE]
 > Since the migration to the new URL <https://www.powerof10.uk/Home/Rankings>,
 > it no longer makes sense to develop this.
 
