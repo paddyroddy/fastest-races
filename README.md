@@ -1,8 +1,8 @@
 # FastestRaces
 
-> [!NOTE]
-> Since the migration to the new URL <https://www.powerof10.uk/Home/Rankings>,
-> it no longer makes sense to develop this.
+> [!NOTE] Since the migration to the new URL
+> <https://www.powerof10.uk/Home/Rankings>, it no longer makes sense to develop
+> this.
 
 [![PyPI](https://badge.fury.io/py/fastest-races.svg)](https://pypi.org/project/fastest-races)
 [![Python](https://img.shields.io/pypi/pyversions/fastest-races)](https://www.python.org)
